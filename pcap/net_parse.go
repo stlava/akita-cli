@@ -165,6 +165,14 @@ func (p *NetworkTrafficParser) ParseFromInterface(interfaceName, bpfFilter strin
 }
 
 func (p *NetworkTrafficParser) packetToParsedNetworkTraffic(out chan<- akinet.ParsedNetworkTraffic, assembler *reassembly.Assembler, packet gopacket.Packet) {
+	vxlanLayer := packet.Layer(layers.LayerTypeVXLAN)
+	if vxlanLayer != nil {
+		vxlanPacket, _ := vxlanLayer.(*layers.VXLAN)
+		unwrappedPacket := gopacket.NewPacket(vxlanPacket.LayerPayload(), layers.LayerTypeEthernet, gopacket.Default)
+		p.packetToParsedNetworkTraffic(out, assembler, unwrappedPacket)
+		return
+	}
+
 	if packet.NetworkLayer() == nil {
 		printer.V(4).Debugf("unusable packet without network layer\n")
 		return
